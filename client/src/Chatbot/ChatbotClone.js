@@ -1,11 +1,18 @@
 import React, { useEffect } from 'react';
 import Axios from 'axios';
+import { useDispatch, useSelector } from 'react-redux'
+import { saveMessage } from '../_actions/message_actions';
+import { List, Icon, Avatar } from 'antd';
+import Message from './Sections/MessageClone'
+import Card from './Sections/CardClone'
 
 function Chatbot() {
+    const dispatch = useDispatch();
+    const messagesFromRedux = useSelector(state => state.message.messages)
 
     useEffect(() => {
         eventQuery('WelcomeToMyWebsite')
-    },[])
+    },[])  
 
     const textQuery = async (text) => {
 
@@ -19,7 +26,9 @@ function Chatbot() {
                 }
             }
         }
-        console.log(conversation)
+
+        dispatch(saveMessage(conversation))
+        // console.log("내가 보낸거",conversation)
         const textQueryVariables = {
             text
         }
@@ -28,13 +37,15 @@ function Chatbot() {
         try {
         // textQuery Route에 req를 보냄.
             const response = await Axios.post('/api/dialogflow/textQuery', textQueryVariables)
-            const content = response.data.fulfillmentMessages[0]
 
-            conversation = {
-                who: 'bot',
-                content: content
+            for (let content of response.data.fulfillmentMessages) {
+                conversation = {
+                    who: 'bot',
+                    content: content
+                }
+                // console.log(conversation)
+                dispatch(saveMessage(conversation))
             }
-            console.log(conversation)
         } catch (err) {
             conversation = {
                 who: 'bot',
@@ -44,7 +55,8 @@ function Chatbot() {
                     }
                 }
             }
-            console.log(conversation)
+            // console.log(conversation)
+            dispatch(saveMessage(conversation))
         }
     }
 
@@ -59,14 +71,16 @@ function Chatbot() {
         try {
         // textQuery Route에 req를 보냄.
             const response = await Axios.post('/api/dialogflow/eventQuery', eventQueryVariables)
-            const content = response.data.fulfillmentMessages[0]
-
-            let conversation = {
-                who: 'bot',
-                content: content
+            
+            for (let content of response.data.fulfillmentMessages) {
+                let conversation = {
+                    who: 'bot',
+                    content: content
+                }
+                // console.log(conversation)
+                dispatch(saveMessage(conversation))
             }
-            // conversations.push(conversation)
-            console.log(conversation)
+
         } catch (err) {
             let conversation = {
                 who: 'bot',
@@ -77,7 +91,8 @@ function Chatbot() {
                 }
             }
             // conversations.push(conversation)
-            console.log(conversation)
+            dispatch(saveMessage(conversation))
+            // console.log(conversation)
         }
     }
 
@@ -92,9 +107,52 @@ function Chatbot() {
         }
     }
 
+    const renderCards = (cards) => {
+        return cards.map((card, i) => {
+            return <Card key={i} cardInfo={card.structValue}/>
+        })
+    }
+
+    const renderOneMessage = (message, i) => {
+        console.log('message', message)
+
+        //여기서 조건에 따른 분기가 필요합니다.
+        //메세지를 위한 UI , 카드를 위한 UI
+        if(message.content && message.content.text && message.content.text.text ) {
+            return <Message key={i} who={message.who} text={message.content.text.text} />
+        } else if(message.content && message.content.payload.fields.card) {
+            const AvatarSrc = message.who === 'bot' ? <Icon type="robot" /> : <Icon type="smile" />
+            return <div>
+            <List.Item style={{padding: '1rem'}}>
+                <List.Item.Meta
+                    avatar={<Avatar icon={AvatarSrc} />}
+                    title={message.who}
+                    description={renderCards(message.content.payload.fields.card.listValue.values)}
+                />
+            </List.Item>
+            </div>
+        }
+
+        // <Message key={i} who={message.who} text={message.content.text.text} />
+    
+    }
+
+    const renderMessage = (returnedMessages) => {
+
+        if(returnedMessages) {
+            return returnedMessages.map((message, i) => {
+                return renderOneMessage(message, i);
+            })
+        } else {
+            return null;
+        }
+    }
+
     return (
         <div style={{height: 700, width: 700, border: '3px solid black', borderRadius: '7px'}}>
             <div style={{height: 644, width: '100%', overflow: 'auto'}}>
+
+            {renderMessage(messagesFromRedux)}
 
             </div>
 
